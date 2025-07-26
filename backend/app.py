@@ -4,6 +4,8 @@ from LLM.bot import generate_prompt, process_pdf, process_text, retrieve_context
 from werkzeug.utils import secure_filename
 import chromadb
 import ollama
+import json
+import subprocess
 import os
 
 app = Flask(__name__)
@@ -114,6 +116,28 @@ def upload_file():
     else:
         return jsonify({"error": "Only PDF files are allowed."}), 400
 
+@app.route('/send', methods=['POST'])
+def send_whatsapp_messages():
+    data = request.get_json()
+    phone_numbers = data.get("phone_numbers")
+    message = data.get("message")
+
+    if not phone_numbers or not message:
+        return jsonify({"error": "phone_numbers (array) dan message (string) wajib diisi"}), 400
+
+    try:
+        # Panggil script Node.js dengan argumen
+        cmd = [
+            "node",
+            "whatsapp/dist/index.js",  # hasil dari `tsc`, bukan .ts
+            json.dumps(phone_numbers),
+            message
+        ]
+        subprocess.run(cmd, check=True)
+        return jsonify({"status": "success", "sent_to": phone_numbers}), 200
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/delete", methods=["DELETE"])
 def delete_source():
     data = request.json
